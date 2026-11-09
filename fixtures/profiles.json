@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "status": "TEMPORARY (M1): research 프로브의 qwen3:4b Q4_K_M 실측값만 사용. M2에서 qwen3:0.6b 3태그 실측으로 교체 예정",
+    "recorded": "2026-11-09",
+    "ollama_version": "0.40.15",
+    "machine": "Apple silicon, macOS 27.0.1 (공유 서버)",
+    "source": "decode 33.4 tok/s = conc_q4.jsonl 중앙값, prefill 328 tok/s = 1,521토큰 4,638ms, load 614ms = rerun 콜드 로드, 메모리 = /api/ps size 3,181,631,242(ctx 4096) · 5,119,504,547(ctx 16384)"
+  },
+  "models": {
+    "qwen3:4b": {
+      "quantization_level": "Q4_K_M",
+      "decode_tps": 33.4,
+      "prefill_tps": 328.0,
+      "load_ms": 614.0,
+      "weights_bytes": 2535675658,
+      "kv_bytes_per_token": 157704
+    }
+  }
+}
