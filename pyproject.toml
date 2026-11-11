@@ -1,6 +1,6 @@
 [project]
 name = "ai-lab-local-llm-bench"
-version = "0.1.0"
+version = "0.1.1"
 description = "로컬 LLM(Ollama) 속도를 대기·로드·프리필·디코드로 쪼개 재는 도구"
 requires-python = ">=3.10"
 dependencies = []  # 실행에는 표준 라이브러리만 쓴다
