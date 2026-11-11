@@ -43,9 +43,10 @@ def _common_prefix(a: str, b: str) -> int:
 
 
 class FakeOllama:
-    def __init__(self, profiles: dict | None = None, speed: float = 10.0, host: str = "127.0.0.1"):
+    def __init__(self, profiles: dict | None = None, speed: float = 10.0, host: str = "127.0.0.1", tags: bool = True):
         self.profiles = profiles or load_profiles()
         self.speed = speed
+        self.tags = tags  # False 면 /api/tags 미지원 서버를 흉내 낸다(404)
         self.version = self.profiles["meta"]["ollama_version"]
         self.slot = threading.Lock()  # 슬롯 1개 -> 줄 서기
         self.loaded = None  # (model, num_ctx)
@@ -112,6 +113,9 @@ class FakeOllama:
                     self._json(200, {"version": fake.version})
                 elif self.path == "/api/ps":
                     self._json(200, {"models": fake._ps_entry()})
+                elif self.path == "/api/tags" and fake.tags:
+                    names = list(fake.profiles["models"])
+                    self._json(200, {"models": [{"name": m, "model": m} for m in names]})
                 else:
                     self._json(404, {"error": "not found"})
 

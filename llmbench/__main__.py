@@ -126,10 +126,40 @@ def client_host(args) -> str:
     return normalize_host(args.host or os.environ.get("OLLAMA_HOST", "http://localhost:11434"))
 
 
+def _norm_tag(tag: str) -> str:
+    """'qwen3' 와 'qwen3:latest' 를 같게 본다(':' 가 없으면 ':latest')."""
+    return tag if ":" in tag else tag + ":latest"
+
+
+def _check_models(client: OllamaClient, models: list) -> int | None:
+    """측정 전에 모델이 서버에 있는지 확인. 없으면 안내 후 2, 통과·건너뜀이면 None."""
+    try:
+        have = client.tags()
+    except OllamaError:  # /api/tags 미지원 등 -> 경고만 하고 기존 흐름대로
+        have = None
+    except ValueError:  # 응답 형식이 다름
+        have = None
+    if have is None:
+        print("경고: 모델 목록(/api/tags)을 확인할 수 없어 존재 확인을 건너뜁니다")
+        return None
+    have_norm = {_norm_tag(h) for h in have}
+    missing = [m for m in models if _norm_tag(m) not in have_norm]
+    if not missing:
+        return None
+    lines = [f"오류: 서버에 없는 모델 태그: {', '.join(missing)}"]
+    lines += [f"  받으려면: ollama pull {m}" for m in missing]
+    lines.append(f"  받아 둔 모델: {', '.join(have) if have else '(없음)'}")
+    print("\n".join(lines), file=sys.stderr)
+    return 2
+
+
 def _run(args, cfg: Config, client: OllamaClient, mock: bool) -> int:
     version = client.version()  # 여기서 연결 실패가 먼저 드러난다
     ps_before = client.ps()
     names = [m.get("name") for m in ps_before]
+    code = _check_models(client, cfg.models)
+    if code is not None:
+        return code
     mode = "MOCK" if mock else "REAL"
     print(f"[{mode}] ollama {version} @ {client.host}")
     others = [n for n in names if n not in cfg.models]

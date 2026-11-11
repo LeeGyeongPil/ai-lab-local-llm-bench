@@ -54,6 +54,14 @@ class OllamaClient:
     def version(self) -> str:
         return self._get_json("/api/version").get("version", "unknown")
 
+    def tags(self) -> list:
+        """서버에 받아 둔 모델 태그 목록(/api/tags). 형식이 예상과 다르면 ValueError."""
+        data = self._get_json("/api/tags")  # JSON 이 아니면 ValueError(JSONDecodeError)
+        models = data.get("models") if isinstance(data, dict) else None
+        if not isinstance(models, list):
+            raise ValueError("/api/tags 응답에 models 목록이 없습니다")
+        return [m.get("name") or m.get("model") for m in models if isinstance(m, dict) and (m.get("name") or m.get("model"))]
+
     def ps(self) -> list:
         """지금 메모리에 올라 있는 모델 목록(/api/ps)."""
         return self._get_json("/api/ps").get("models", [])
