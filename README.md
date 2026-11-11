@@ -1,5 +1,7 @@
 # ai-lab-local-llm-bench — 로컬 LLM 속도를 "대기·로드·프리필·디코드"로 쪼개 재 보기
 
+**한국어** | [English](README.en.md)
+
 > **English summary** — A small, dependency-free Python tool that benchmarks a local Ollama server and shows where time goes: queue, model load, prefill (prompt processing) and decode (token generation). Try it in one command without any model or API key: `python3 -m llmbench run --mock` (a practice mode that replays a recorded timing profile through a fake Ollama server). **Status: milestone M1 (measurement core).** SVG charts, a markdown report, quantization comparison (Q4/Q8/FP16) and side-by-side answer quality are planned for M2/M3 and are not implemented yet.
 
 ```text
