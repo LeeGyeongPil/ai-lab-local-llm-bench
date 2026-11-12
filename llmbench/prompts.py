@@ -6,6 +6,8 @@
 import math
 import os
 
+from .i18n import CodedError
+
 # 크기 이름 -> 목표 토큰 수 (약 20 / 500 / 1,500)
 SIZES = {"short": 20, "medium": 500, "long": 1500}
 
@@ -32,7 +34,7 @@ def _passage(chars: int) -> str:
 def make_prompt(size: str, nonce: str = "") -> str:
     """nonce 가 있으면 맨 앞에 붙인다 -> 프롬프트 캐시(접두어 일치)를 피한다."""
     if size not in SIZES:
-        raise ValueError(f"알 수 없는 입력 크기: {size} (선택: {', '.join(SIZES)})")
+        raise CodedError("err.unknown_size", size=size, sizes=", ".join(SIZES))
     head = f"[run {nonce}] " if nonce else ""
     if size == "short":
         body = "Explain what a KV cache is in one sentence."

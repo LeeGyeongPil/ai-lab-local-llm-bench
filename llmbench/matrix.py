@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, field
 
 from .client import OllamaClient
+from .i18n import t
 from .prompts import make_prompt
 
 
@@ -123,7 +124,7 @@ def run_matrix(client: OllamaClient, cfg: Config, path: str, log=print, max_cell
                 stopped = True
                 break
             # 워밍업 1회: 모델을 올리고 결과는 버린다(phase=warmup, 집계에서 제외)
-            log(f"[warmup] {model} num_ctx={num_ctx} (집계 제외)")
+            log(t("run.warmup", model=model, num_ctx=num_ctx))
             wres, wwall = _run_batch(client, cfg, model, num_ctx, "short", 1)
             _append(path, {"type": "row", "phase": "warmup", "model": model, "num_ctx": num_ctx,
                            "concurrency": 1, "size": "short", "rep": 0, "slot": 0,
@@ -141,8 +142,8 @@ def run_matrix(client: OllamaClient, cfg: Config, path: str, log=print, max_cell
                                    "batch_wall_ms": wall, **res, **info})
                 measured_now += 1
                 tt = sorted(r["ttft_ms"] for r in results)
-                log(f"[{measured_now + skipped}/{cfg.total_cells()}] {m} ctx={c} 동시={n} 입력={size} 반복={rep + 1}"
-                    f"  TTFT {tt[0]:.0f}~{tt[-1]:.0f}ms  디코드 {results[0]['decode_tps']:.1f} tok/s")
+                log(t("run.progress", index=measured_now + skipped, total=cfg.total_cells(), model=m, ctx=c, conc=n,
+                      size=size, rep=rep + 1, lo=tt[0], hi=tt[-1], tps=results[0]["decode_tps"]))
             if stopped:
                 break
     return {"done": measured_now, "skipped": skipped, "stopped": stopped}

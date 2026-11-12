@@ -10,6 +10,8 @@ import time
 import urllib.error
 import urllib.request
 
+from .i18n import CodedError
+
 
 class OllamaUnreachable(Exception):
     """서버에 연결할 수 없을 때."""
@@ -59,7 +61,7 @@ class OllamaClient:
         data = self._get_json("/api/tags")  # JSON 이 아니면 ValueError(JSONDecodeError)
         models = data.get("models") if isinstance(data, dict) else None
         if not isinstance(models, list):
-            raise ValueError("/api/tags 응답에 models 목록이 없습니다")
+            raise CodedError("err.tags_shape")
         return [m.get("name") or m.get("model") for m in models if isinstance(m, dict) and (m.get("name") or m.get("model"))]
 
     def ps(self) -> list:

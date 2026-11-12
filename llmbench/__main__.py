@@ -6,17 +6,18 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 
 from . import __version__
 from .client import OllamaClient, OllamaError, OllamaUnreachable, normalize_host
 from .fake_ollama import FakeOllama, load_profiles
+from .i18n import LANGS, CodedError, current_lang, pad, resolve_lang, set_lang, t
 from .matrix import Config, read_jsonl, run_matrix, _append
 from .prompts import SIZES
 from .stats import summarize
 
-MOCK_BANNER = "MOCK — 녹화된 측정 프로필을 재생하는 연습용(mock) 모드입니다. 실제 모델 속도가 아닙니다."
 DEFAULT_REAL_MODELS = "qwen3:0.6b-q4_K_M,qwen3:0.6b-q8_0,qwen3:0.6b-fp16"
 
 
@@ -28,25 +29,91 @@ def _strs(s: str) -> list:
     return [x.strip() for x in s.split(",") if x.strip()]
 
 
+class _Formatter(argparse.HelpFormatter):
+    """Help formatter whose 'usage:' prefix follows the screen language."""
+
+    def add_usage(self, usage, actions, groups, prefix=None):
+        if prefix is None:
+            prefix = t("argp.usage") + " "
+        return super().add_usage(usage, actions, groups, prefix)
+
+
+# English argparse error text -> (message code, parameter name); used only to localize errors.
+_ERROR_PATTERNS = (
+    (re.compile(r"^unrecognized arguments: (.*)$", re.S), "argp.unrecognized", "args"),
+    (re.compile(r"^the following arguments are required: (.*)$", re.S), "argp.required", "args"),
+    (re.compile(r"^invalid int value: (.*)$", re.S), "argp.invalid_int", "value"),
+    (re.compile(r"^invalid float value: (.*)$", re.S), "argp.invalid_float", "value"),
+)
+
+
+def _localize_error(message: str) -> str:
+    """Translate argparse's fixed error sentences (the Korean screen only)."""
+    if current_lang() == "en":
+        return message
+    m = re.match(r"^argument (\S+): (.*)$", message, re.S)
+    if m:
+        return t("argp.argument", name=m.group(1), message=_localize_error(m.group(2)))
+    m = re.match(r"^invalid choice: (.*) \(choose from (.*)\)$", message, re.S)
+    if m:
+        return t("argp.invalid_choice", value=m.group(1), choices=m.group(2))
+    if message == "expected one argument":
+        return t("argp.expected_one")
+    for pattern, code, name in _ERROR_PATTERNS:
+        m = pattern.match(message)
+        if m:
+            return t(code, **{name: m.group(1)})
+    return message
+
+
+class _Parser(argparse.ArgumentParser):
+    """ArgumentParser with its fixed sentences (usage, headings, errors, -h) in the screen language."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", _Formatter)
+        kwargs["add_help"] = False
+        super().__init__(*args, **kwargs)
+        self._positionals.title = t("argp.positional")
+        self._optionals.title = t("argp.options")
+        self.add_argument("-h", "--help", action="help", default=argparse.SUPPRESS, help=t("argp.help"))
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: {t('argp.error')}: {_localize_error(message)}\n")
+
+
+def _prescan_lang(argv):
+    """Read --lang from argv before real parsing so --help and parse errors use that language."""
+    for i, a in enumerate(argv):
+        if a == "--":
+            break
+        value = argv[i + 1] if a == "--lang" and i + 1 < len(argv) else a[7:] if a.startswith("--lang=") else None
+        if value in LANGS:
+            return value
+    return None
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="llmbench", description="로컬 LLM(Ollama) 속도 해부 도구")
-    p.add_argument("--version", action="version", version=f"llmbench {__version__}")
+    p = _Parser(prog="llmbench", description=t("app.description"))
+    p.add_argument("--version", action="version", version=f"llmbench {__version__}", help=t("argp.version"))
+    p.add_argument("--lang", choices=LANGS, default=None, help=t("argp.lang"))
     sub = p.add_subparsers(dest="cmd", required=True)
-    r = sub.add_parser("run", help="측정 매트릭스 실행")
-    r.add_argument("--mock", action="store_true", help="가짜 Ollama(녹화 프로필)로 측정 — 연습용. LLMBENCH_MOCK=1 도 같음")
-    r.add_argument("--mock-speed", type=float, default=10.0, help="mock 시간 배율(기본 10배 빠르게)")
-    r.add_argument("--host", default=None, help="Ollama 주소(기본: $OLLAMA_HOST 또는 http://localhost:11434)")
-    r.add_argument("--models", default=None, help="쉼표로 구분한 모델 태그")
-    r.add_argument("--concurrency", default="1,2,4", help="동시 요청 수 목록")
-    r.add_argument("--prompt-sizes", default="short,medium,long", help=f"입력 길이 목록({','.join(SIZES)})")
-    r.add_argument("--repeat", type=int, default=2, help="칸마다 반복 횟수")
-    r.add_argument("--num-ctx", default="4096", help="컨텍스트 길이 목록(기본 4096 하나로 고정)")
-    r.add_argument("--num-predict", type=int, default=64, help="생성 토큰 상한")
-    r.add_argument("--no-nonce", action="store_true", help="프롬프트 접두어(nonce)를 끈다 -> 캐시 적중 관찰")
-    r.add_argument("--out", default=".", help="결과 폴더(results/ 아래에 JSONL)")
-    r.add_argument("--run-id", default=None, help="결과 파일 이름(기본: 설정 해시 -> 같은 명령이면 이어하기)")
-    r.add_argument("--fresh", action="store_true", help="이어하지 않고 새 run-id(시각)로 측정")
-    r.add_argument("--max-cells", type=int, default=None, help="이번 실행에서 잴 칸 상한(이어하기 시험용)")
+    r = sub.add_parser("run", help=t("cmd.run"))
+    r.add_argument("--lang", choices=LANGS, default=argparse.SUPPRESS, help=t("argp.lang"))  # also allowed after `run`
+    r.add_argument("--mock", action="store_true", help=t("opt.mock"))
+    r.add_argument("--mock-speed", type=float, default=10.0, help=t("opt.mock_speed"))
+    r.add_argument("--host", default=None, help=t("opt.host"))
+    r.add_argument("--models", default=None, help=t("opt.models"))
+    r.add_argument("--concurrency", default="1,2,4", help=t("opt.concurrency"))
+    r.add_argument("--prompt-sizes", default="short,medium,long", help=t("opt.prompt_sizes", sizes=",".join(SIZES)))
+    r.add_argument("--repeat", type=int, default=2, help=t("opt.repeat"))
+    r.add_argument("--num-ctx", default="4096", help=t("opt.num_ctx"))
+    r.add_argument("--num-predict", type=int, default=64, help=t("opt.num_predict"))
+    r.add_argument("--no-nonce", action="store_true", help=t("opt.no_nonce"))
+    r.add_argument("--out", default=".", help=t("opt.out"))
+    r.add_argument("--run-id", default=None, help=t("opt.run_id"))
+    r.add_argument("--fresh", action="store_true", help=t("opt.fresh"))
+    r.add_argument("--max-cells", type=int, default=None, help=t("opt.max_cells"))
     return p
 
 
@@ -61,38 +128,38 @@ def _run_id(args, cfg: Config, mock: bool) -> str:
 
 
 def validate_args(args) -> None:
-    """잘못된 입력은 서버를 띄우거나 측정하기 전에 친절한 ValueError 로 끝낸다."""
+    """Bad input ends with a friendly CodedError before any server starts or measuring begins."""
     try:
         conc, ctxs = _ints(args.concurrency), _ints(args.num_ctx)
     except ValueError:
-        raise ValueError("--concurrency / --num-ctx 는 쉼표로 구분한 정수여야 합니다 (예: 1,2,4)")
+        raise CodedError("err.ints")
     if not conc or any(n < 1 for n in conc):
-        raise ValueError("--concurrency 는 1 이상의 정수 목록이어야 합니다 (예: 1,2,4)")
+        raise CodedError("err.concurrency")
     if not ctxs or any(n < 1 for n in ctxs):
-        raise ValueError("--num-ctx 는 1 이상의 정수 목록이어야 합니다 (예: 4096)")
+        raise CodedError("err.num_ctx")
     sizes = _strs(args.prompt_sizes)
     bad = [s for s in sizes if s not in SIZES]
     if not sizes or bad:
-        raise ValueError(f"--prompt-sizes 에 알 수 없는 값 {bad or ['(빈 값)']}: 가능한 값은 {', '.join(SIZES)}")
+        raise CodedError("err.prompt_sizes", bad=bad or [t("err.empty")], sizes=", ".join(SIZES))
     if args.repeat < 1:
-        raise ValueError("--repeat 는 1 이상이어야 합니다")
+        raise CodedError("err.repeat_min")
     if args.num_predict < 1:
-        raise ValueError("--num-predict 는 1 이상이어야 합니다")
+        raise CodedError("err.num_predict_min")
     if args.mock_speed <= 0:
-        raise ValueError("--mock-speed 는 0 보다 커야 합니다")
+        raise CodedError("err.mock_speed_min")
 
 
 def cmd_run(args) -> int:
     try:
         validate_args(args)
     except ValueError as e:
-        print(f"오류: {e}", file=sys.stderr)
+        print(t("err.prefix", message=e), file=sys.stderr)
         return 2
     mock = args.mock or os.environ.get("LLMBENCH_MOCK") == "1"
     fake = None
     try:
         if mock:
-            print(MOCK_BANNER)
+            print(t("mock.banner"))
             profiles = load_profiles()
             fake = FakeOllama(profiles, speed=args.mock_speed).start()
             host, scale = fake.url, args.mock_speed
@@ -107,15 +174,16 @@ def cmd_run(args) -> int:
         client = OllamaClient(host, time_scale=scale)
         return _run(args, cfg, client, mock)
     except OllamaUnreachable as e:
-        print(f"오류: Ollama 서버({client_host(args)})에 연결할 수 없습니다 ({e}).\n"
-              "  - 서버를 켜세요: `ollama serve`  (다른 주소면 --host 또는 OLLAMA_HOST)\n"
-              "  - 서버·모델 없이 먼저 해 보려면: python3 -m llmbench run --mock", file=sys.stderr)
+        print(t("err.unreachable", host=client_host(args), reason=e), file=sys.stderr)
         return 2
     except OllamaError as e:
-        print(f"오류: Ollama 가 요청을 거절했습니다: {e}\n  모델이 없다면 `ollama pull <태그>` 로 받으세요.", file=sys.stderr)
+        print(t("err.rejected", reason=e), file=sys.stderr)
         return 2
     except ValueError as e:
-        print(f"오류: {e}", file=sys.stderr)
+        print(t("err.prefix", message=e), file=sys.stderr)
+        return 2
+    except OSError as e:  # e.g. --out is a file, or no permission: one line, no traceback
+        print(t("err.os", path=e.filename or args.out, reason=e.strerror or e), file=sys.stderr)
         return 2
     finally:
         if fake:
@@ -140,15 +208,15 @@ def _check_models(client: OllamaClient, models: list) -> int | None:
     except ValueError:  # 응답 형식이 다름
         have = None
     if have is None:
-        print("경고: 모델 목록(/api/tags)을 확인할 수 없어 존재 확인을 건너뜁니다")
+        print(t("warn.no_tags"))
         return None
     have_norm = {_norm_tag(h) for h in have}
     missing = [m for m in models if _norm_tag(m) not in have_norm]
     if not missing:
         return None
-    lines = [f"오류: 서버에 없는 모델 태그: {', '.join(missing)}"]
-    lines += [f"  받으려면: ollama pull {m}" for m in missing]
-    lines.append(f"  받아 둔 모델: {', '.join(have) if have else '(없음)'}")
+    lines = [t("err.missing_models", models=", ".join(missing))]
+    lines += [t("err.pull", model=m) for m in missing]
+    lines.append(t("err.have", models=", ".join(have) if have else t("err.have_none")))
     print("\n".join(lines), file=sys.stderr)
     return 2
 
@@ -164,8 +232,10 @@ def _run(args, cfg: Config, client: OllamaClient, mock: bool) -> int:
     print(f"[{mode}] ollama {version} @ {client.host}")
     others = [n for n in names if n not in cfg.models]
     if others:
-        print(f"경고: 다른 모델이 이미 메모리에 있습니다({', '.join(others)}) — 메모리·속도에 영향을 줄 수 있습니다.")
-    print(f"측정 칸 {cfg.total_cells()}개, 요청 약 {cfg.total_requests()}개 (+워밍업), 생성 {cfg.num_predict}토큰")
+        print(t("warn.other_models", names=", ".join(others)))
+    cells, requests = cfg.total_cells(), cfg.total_requests()
+    plan = "run.plan_one" if cells == 1 and requests == 1 else "run.plan_one_cell" if cells == 1 else "run.plan"
+    print(t(plan, cells=cells, requests=requests, tokens=cfg.num_predict))
 
     out = os.path.join(args.out, "results")
     os.makedirs(out, exist_ok=True)
@@ -175,22 +245,28 @@ def _run(args, cfg: Config, client: OllamaClient, mock: bool) -> int:
                    "started": time.strftime("%Y-%m-%dT%H:%M:%S")})
     done = len(read_jsonl(path))
     if done > 1:
-        print(f"이어하기: {path}")
+        print(t("run.resume", path=path))
     try:
         res = run_matrix(client, cfg, path, max_cells=args.max_cells)
     except KeyboardInterrupt:
-        print(f"\n중단했습니다. 같은 명령을 다시 실행하면 이어서 측정합니다: {path}")
+        print(t("run.interrupted", path=path))
         return 130
-    print(f"건너뜀 {res['skipped']}칸, 새로 측정 {res['done']}칸" + (" (상한에서 멈춤)" if res["stopped"] else ""))
+    one_s, one_d = res["skipped"] == 1, res["done"] == 1
+    summary = "run.summary" + ("_one_both" if one_s and one_d else "_one_skipped" if one_s else "_one_done" if one_d else "")
+    print(t(summary, skipped=res["skipped"], done=res["done"], stopped=t("run.stopped") if res["stopped"] else ""))
     _print_table(summarize(read_jsonl(path)))
-    print(f"결과: {path}")
+    print(t("run.result", path=path))
     return 0
 
 
 def _print_table(rows) -> None:
     if not rows:
         return
-    print(f"\n{'model':<24}{'ctx':>6}{'동시':>5}{'입력':>8}{'TTFT p50':>10}{'p95':>9}{'디코드':>8}{'합계tok/s':>10}{'메모리MB':>9}")
+    # pad by display width so Korean headers line up with the ASCII ones
+    heads = [("model", 24, False), ("ctx", 6, True), (t("tbl.conc"), 5, True), (t("tbl.size"), 8, True),
+             ("TTFT p50", 10, True), ("p95", 9, True), (t("tbl.decode"), 8, True), (t("tbl.agg"), 10, True),
+             (t("tbl.mem"), 9, True)]
+    print("\n" + "".join(pad(text, w, right) for text, w, right in heads))
     for r in rows:
         mb = f"{r['ps_size'] / 1e6:.0f}" if r["ps_size"] else "-"
         print(f"{r['model']:<24}{r['num_ctx']:>6}{r['concurrency']:>5}{r['size']:>8}"
@@ -198,8 +274,13 @@ def _print_table(rows) -> None:
 
 
 def main(argv=None) -> int:
-    args = build_parser().parse_args(argv)
-    return {"run": cmd_run}[args.cmd](args)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    set_lang(resolve_lang(_prescan_lang(argv)))  # --lang > LLMBENCH_LANG > LC_ALL > LC_MESSAGES > LANG
+    try:
+        args = build_parser().parse_args(argv)
+        return {"run": cmd_run}[args.cmd](args)
+    finally:
+        set_lang(None)  # do not leak the language into later calls (tests, embedding)
 
 
 if __name__ == "__main__":
