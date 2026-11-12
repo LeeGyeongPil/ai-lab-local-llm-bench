@@ -5,13 +5,13 @@
 A small, dependency-free Python tool that benchmarks a local Ollama server and shows where time goes: queue, model load, prefill (prompt processing) and decode (token generation). Try it in one command without any model or API key: `python3 -m llmbench run --mock` (a practice mode that replays a recorded timing profile through a fake Ollama server). **Status: milestone M1 (measurement core).** SVG charts, a markdown report, quantization comparison (Q4/Q8/FP16) and side-by-side answer quality are planned for M2/M3 and are not implemented yet.
 
 ```text
-$ python3 -m llmbench run --mock
+$ python3 -m llmbench --lang en run --mock
 
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx conc    size  TTFT p50      p95  decode agg tok/s   mem MB
 qwen3:4b                  4096    1    long      4854     4931    33.4       9.5     3182
 qwen3:4b                  4096    1  medium      1691     1720    33.4      17.9     3182
 qwen3:4b                  4096    1   short       132      133    33.4      31.7     3182
-...  (동시 2·4 의 long·medium 행 생략)
+...  (long and medium rows for concurrency 2 and 4 omitted)
 qwen3:4b                  4096    2   short      1127     2129    33.4      32.0     3182
 qwen3:4b                  4096    4   short      3118     6121    33.4      31.9     3182
 ```
@@ -51,17 +51,17 @@ python3 -m llmbench run --mock
 It finishes in about 18 seconds. The first two lines tell you the mode.
 
 ```text
-MOCK — 녹화된 측정 프로필을 재생하는 연습용(mock) 모드입니다. 실제 모델 속도가 아닙니다.
-[MOCK] ollama 0.40.15 @ http://127.0.0.1:49339
-측정 칸 18개, 요청 약 42개 (+워밍업), 생성 64토큰
-[warmup] qwen3:4b num_ctx=4096 (집계 제외)
-[1/18] qwen3:4b ctx=4096 동시=1 입력=short 반복=1  TTFT 130~130ms  디코드 33.4 tok/s
-[2/18] qwen3:4b ctx=4096 동시=1 입력=short 반복=2  TTFT 134~134ms  디코드 33.4 tok/s
-[3/18] qwen3:4b ctx=4096 동시=2 입력=short 반복=1  TTFT 120~2124ms  디코드 33.4 tok/s
+MOCK - practice (mock) mode replaying a recorded measurement profile. These are not real model speeds.
+[MOCK] ollama 0.40.15 @ http://127.0.0.1:57860
+18 cells to measure, about 42 requests (+ warm-up), 64 tokens generated
+[warmup] qwen3:4b num_ctx=4096 (excluded from stats)
+[1/18] qwen3:4b ctx=4096 conc=1 size=short rep=1  TTFT 104~104ms  decode 33.4 tok/s
+[2/18] qwen3:4b ctx=4096 conc=1 size=short rep=2  TTFT 105~105ms  decode 33.4 tok/s
+[3/18] qwen3:4b ctx=4096 conc=2 size=short rep=1  TTFT 101~2074ms  decode 33.4 tok/s
 ...
 ```
 
-(The port number differs on every run. The tool's output is in Korean: "MOCK — practice (mock) mode that replays a recorded measurement profile. These are not real model speeds." / "18 measurement cells, about 42 requests (+warmup), 64 generated tokens" / "동시" = concurrency, "입력" = input, "반복" = repeat, "디코드" = decode.)
+(The port number differs on every run. The screen language follows your locale and falls back to English; see [Screen language](#screen-language) to pick English or Korean explicitly. The examples in this file are in English; the Korean screens are in [README.ko.md](README.ko.md).)
 
 **What is the practice mock mode?** It does not run a real model. Using numbers measured once (`fixtures/profiles.json`), a **fake server that streams responses over HTTP just like a real Ollama** merely imitates the timing. Without a model or a key, you get the same result shape even in CI. The numbers are **not** the real speed of your laptop. Time is run 10 times faster, and the reported values are converted back to the original scale (which is why it finishes in 18 seconds).
 
@@ -72,27 +72,27 @@ ollama pull qwen3:4b
 python3 -m llmbench run --models qwen3:4b --concurrency 1 --prompt-sizes short,long --repeat 1 --num-predict 24
 ```
 
-The result of actually running this command at the time of writing (Ollama 0.40.15, shared server, Apple silicon):
+The result of actually running this command with an earlier release (Ollama 0.40.15, shared server, Apple silicon; the screen text was Korean then, and is shown here in the v0.2.0 English wording, with the same numbers):
 
 ```text
 [REAL] ollama 0.40.15 @ http://localhost:11434
-측정 칸 2개, 요청 약 2개 (+워밍업), 생성 24토큰
-[warmup] qwen3:4b num_ctx=4096 (집계 제외)
-[1/2] qwen3:4b ctx=4096 동시=1 입력=short 반복=1  TTFT 113~113ms  디코드 34.6 tok/s
-[2/2] qwen3:4b ctx=4096 동시=1 입력=long 반복=1  TTFT 3864~3864ms  디코드 32.3 tok/s
-건너뜀 0칸, 새로 측정 2칸
+2 cells to measure, about 2 requests (+ warm-up), 24 tokens generated
+[warmup] qwen3:4b num_ctx=4096 (excluded from stats)
+[1/2] qwen3:4b ctx=4096 conc=1 size=short rep=1  TTFT 113~113ms  decode 34.6 tok/s
+[2/2] qwen3:4b ctx=4096 conc=1 size=long rep=1  TTFT 3864~3864ms  decode 32.3 tok/s
+skipped 0 cells, measured 2 new cells
 
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx conc    size  TTFT p50      p95  decode agg tok/s   mem MB
 qwen3:4b                  4096    1    long      3864     3864    32.3       5.2     3182
 qwen3:4b                  4096    1   short       113      113    34.6      29.8     3182
-결과: results/run-47deefe1.jsonl
+result: results/run-47deefe1.jsonl
 ```
 
 > If you omit `--models`, the default is the three quantization tags of `qwen3:0.6b` (q4_K_M, q8_0, fp16), but that comparison feature (M2) is not finished yet. In M1, specify a model you already have with `--models`. If you specify a tag that has not been pulled to the server, the tool tells you before measuring (exit code 2) and stops.
 
 ## Follow along step by step
 
-How to read the table: **TTFT** = time from sending the request until the first character arrives (ms), **p50/p95** = the median / the boundary of the slowest 5%, **디코드** (decode) = generated tokens per second as reported by the server, **합계tok/s** (total tok/s) = all generated tokens of the batch ÷ the whole batch time, **메모리MB** (memory MB) = estimated memory the model occupies (`size` from `/api/ps`).
+How to read the table: **TTFT** = time from sending the request until the first character arrives (ms), **p50/p95** = the median / the boundary of the slowest 5%, **decode** = generated tokens per second as reported by the server, **agg tok/s** (total tok/s) = all generated tokens of the batch ÷ the whole batch time, **mem MB** (memory MB) = estimated memory the model occupies (`size` from `/api/ps`).
 
 ### Step 1. Change only the input length
 
@@ -106,7 +106,7 @@ python3 -m llmbench run --mock --concurrency 1 --repeat 1
 ```
 
 ```text
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx conc    size  TTFT p50      p95  decode agg tok/s   mem MB
 qwen3:4b                  4096    1    long      4792     4792    33.4       9.6     3182
 qwen3:4b                  4096    1  medium      1696     1696    33.4      17.9     3182
 qwen3:4b                  4096    1   short       114      114    33.4      32.1     3182
@@ -124,7 +124,7 @@ python3 -m llmbench run --mock --concurrency 1,2,4 --prompt-sizes short --repeat
 ```
 
 ```text
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx conc    size  TTFT p50      p95  decode agg tok/s   mem MB
 qwen3:4b                  4096    1   short       129      129    33.4      31.8     3182
 qwen3:4b                  4096    2   short      1126     2015    33.4      31.9     3182
 qwen3:4b                  4096    4   short      3128     5820    33.4      32.0     3182
@@ -145,16 +145,15 @@ python3 -m llmbench run --mock --concurrency 1,2 --prompt-sizes short --repeat 1
 ```
 
 ```text
-[1/2] qwen3:4b ctx=4096 동시=1 입력=short 반복=1  TTFT 109~109ms  디코드 33.4 tok/s
-건너뜀 0칸, 새로 측정 1칸 (상한에서 멈춤)
+[1/2] qwen3:4b ctx=4096 conc=1 size=short rep=1  TTFT 114~114ms  decode 33.4 tok/s
+skipped 0 cells, measured 1 new cell (stopped at the limit)
   ...
-[2/2] qwen3:4b ctx=4096 동시=2 입력=short 반복=1  TTFT 136~2124ms  디코드 33.4 tok/s
-건너뜀 1칸, 새로 측정 1칸
+resuming: /tmp/llmb-demo/results/run-3580e55a.jsonl
+[2/2] qwen3:4b ctx=4096 conc=2 size=short rep=1  TTFT 104~2088ms  decode 33.4 tok/s
+skipped 1 cell, measured 1 new cell
 ```
 
-(Output: "건너뜀 0칸, 새로 측정 1칸 (상한에서 멈춤)" = "skipped 0 cells, newly measured 1 cell (stopped at the limit)".)
-
-**What does it mean?** Even if you stop a long real measurement with Ctrl+C (`중단했습니다. 같은 명령을 다시 실행하면 이어서 측정합니다`, i.e. "Interrupted. Run the same command again to continue measuring"), the earlier part is kept. The result file name (run-id) is a hash of the settings, so it resumes only if **the settings are the same**. To measure from scratch, add `--fresh`.
+**What does it mean?** Even if you stop a long real measurement with Ctrl+C (`Interrupted. Run the same command again to resume: <path>`), the earlier part is kept. The result file name (run-id) is a hash of the settings, so it resumes only if **the settings are the same**. To measure from scratch, add `--fresh`.
 
 ### Step 4. When there is no server
 
@@ -162,18 +161,34 @@ python3 -m llmbench run --mock --concurrency 1,2 --prompt-sizes short --repeat 1
 <sub>Figure 4. Guidance message when connecting to the server fails (exit code 2).</sub>
 
 ```bash
-python3 -m llmbench run --host 127.0.0.1:1
+python3 -m llmbench --lang en run --host 127.0.0.1:1
 ```
 
 ```text
-오류: Ollama 서버(http://127.0.0.1:1)에 연결할 수 없습니다 (<urlopen error [Errno 61] Connection refused>).
-  - 서버를 켜세요: `ollama serve`  (다른 주소면 --host 또는 OLLAMA_HOST)
-  - 서버·모델 없이 먼저 해 보려면: python3 -m llmbench run --mock
+error: cannot connect to the Ollama server (http://127.0.0.1:1) (<urlopen error [Errno 61] Connection refused>).
+  - start the server: `ollama serve`  (for another address use --host or OLLAMA_HOST)
+  - to try it without a server or models: python3 -m llmbench run --mock
 ```
 
-(The message says: "Error: cannot connect to the Ollama server. Start the server with `ollama serve` (use --host or OLLAMA_HOST for another address). To try it first without a server or model: python3 -m llmbench run --mock".)
-
 The exit code is 2. (`Errno 61` is the macOS value; on Linux it appears as `Errno 111`.)
+
+## Screen language
+
+All screen text (help, progress lines, the summary table, errors) comes in English or Korean. The first rule that applies wins:
+
+1. `--lang en|ko` (allowed before or after `run`; if you give different values in both places, the one before `run` is used)
+2. the `LLMBENCH_LANG` environment variable
+3. the locale variables `LC_ALL`, then `LC_MESSAGES`, then `LANG`
+
+A value that starts with `ko` (`ko`, `ko_KR.UTF-8`) means Korean; anything else, or nothing set, means English.
+
+```bash
+python3 -m llmbench --lang ko run --mock          # Korean for this run
+LLMBENCH_LANG=ko python3 -m llmbench run --mock   # Korean for the shell session
+python3 -m llmbench --lang ko --help              # help and argparse errors are translated too
+```
+
+Only the text for humans changes. The JSONL result keys and values, the result file name (`run-<hash>.jsonl`), the option names and the exit codes (0 ok, 2 bad input or server error, 130 Ctrl+C) stay the same, so a run started in one language can be resumed in the other.
 
 ## How does it work?
 
@@ -205,6 +220,7 @@ flowchart LR
 | [`llmbench/matrix.py`](llmbench/matrix.py) | Iterates measurement cells, saves JSONL, resumes |
 | [`llmbench/stats.py`](llmbench/stats.py) | Percentile and total-throughput aggregation |
 | [`llmbench/prompts.py`](llmbench/prompts.py) | Builds short/medium/long prompts |
+| [`llmbench/i18n.py`](llmbench/i18n.py) | Message tables (en/ko) and the language resolution order |
 | [`tests/`](tests) | Tests for staircase TTFT, the input-length effect, cache, resume and no-server |
 
 **Key point 1 — TTFT is the moment the "first chunk with content" arrives** ([`client.py`](llmbench/client.py))
@@ -249,36 +265,39 @@ The server does not report queue time separately, so it is estimated as "total �
 
 ## Try changing things yourself
 
-1. **Choose input sizes** — change it like `--mock --prompt-sizes short,long` → only the chosen sizes are measured and the number of cells drops → confirm with the "측정 칸 N개" (N measurement cells) number on the first line and the number of table rows.
-2. **Increase concurrent requests** — `--mock --concurrency 1,8` → when I ran it, at concurrency 8 the TTFT p95 was 13378ms and total tok/s stayed flat at 32.0 → compare the `p95` and `합계tok/s` columns of the table.
+1. **Choose input sizes** — change it like `--mock --prompt-sizes short,long` → only the chosen sizes are measured and the number of cells drops → confirm with the "N cells to measure" number on the first line and the number of table rows.
+2. **Increase concurrent requests** — `--mock --concurrency 1,8` → when I ran it, at concurrency 8 the TTFT p95 was 13378ms and total tok/s stayed flat at 32.0 → compare the `p95` and `agg tok/s` columns of the table.
 3. **See the cache effect** — `--mock --no-nonce --concurrency 1 --prompt-sizes long` → when the same long input is repeated, the beginning hits the cache from the second repeat on → confirm with `prompt_eval_cached_count` in the result JSONL. When I ran it, the first repeat had prefill of 4610ms (cache 0), and the second repeat had 1511 of 1512 tokens hit, with prefill of 3ms and TTFT of 61ms (values imitated by the mock). That is why this tool attaches a random prefix by default.
 
 ## Common problems
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Ollama 서버(...)에 연결할 수 없습니다` (cannot connect to the Ollama server) | The server is off or the address is different | Run `ollama serve`; for another address use `--host` or `OLLAMA_HOST` |
-| `오류: 서버에 없는 모델 태그: …` (error: model tag not on the server) with a `받으려면: ollama pull <태그>` (to pull: ollama pull <tag>) hint, exit code 2 | The specified tag has not been pulled to the server | Run the printed `ollama pull <tag>`, or specify a tag from the `받아 둔 모델` (pulled models) list with `--models`. If the server does not support `/api/tags`, it prints one warning line and proceeds without checking |
+| `error: cannot connect to the Ollama server (...)` | The server is off or the address is different | Run `ollama serve`; for another address use `--host` or `OLLAMA_HOST` |
+| `error: models not on the server: …` with a `to fetch: ollama pull <model>` hint, exit code 2 | The specified tag has not been pulled to the server | Run the printed `ollama pull <tag>`, or specify a tag from the `models you have:` list with `--models`. If the server does not support `/api/tags`, it prints one warning line and proceeds without checking |
 | Real mode is very slow | Shared server, or model load, or a long input | Values can fluctuate, so raise `--repeat` and measure again when no other work is running |
-| `경고: 다른 모델이 이미 메모리에 있습니다` (warning: another model is already in memory) | Another model affects memory and speed | Unload that model and measure again |
-| The same command prints only "건너뜀 N칸" (skipped N cells) | The settings are the same, so earlier results were picked up | To measure from scratch, use `--fresh` or `--run-id` |
-| `오류: --prompt-sizes 에 알 수 없는 값 ['huge']` (error: unknown value in --prompt-sizes) or `--concurrency 는 1 이상의 정수 목록이어야 합니다` (--concurrency must be a list of integers of 1 or more) (exit code 2) | Input validation: a value outside the allowed range | Specify `--prompt-sizes` from `short,medium,long`, and `--concurrency` and `--repeat` as integers of 1 or more |
+| `warning: other models are already in memory (...)` | Another model affects memory and speed | Unload that model and measure again |
+| The same command prints only "skipped N cells" | The settings are the same, so earlier results were picked up | To measure from scratch, use `--fresh` or `--run-id` |
+| `error: --prompt-sizes has unknown value(s) ['huge']: allowed values are short, medium, long` or `error: --concurrency must be a list of integers >= 1 (e.g. 1,2,4)` (exit code 2) | Input validation: a value outside the allowed range | Specify `--prompt-sizes` from `short,medium,long`, and `--concurrency` and `--repeat` as integers of 1 or more |
+| The screen is in the other language than you want | The locale picked the language | Pass `--lang en` or `--lang ko`, or set `LLMBENCH_LANG` (see [Screen language](#screen-language)) |
 | Mock tests fail on a very slow CI | The tests are based on the wall clock | Lower `--mock-speed` (for example 5) and retry |
 
 ## Development and tests
 
 ```bash
-uv run pytest -q                                   # uv 필요: curl -LsSf https://astral.sh/uv/install.sh | sh
-python3 -m unittest discover -s tests -t .         # uv 없이도 가능
+uv run pytest -q          # needs uv: curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-At the time of writing, all 17 tests passed with both. In a minimal Linux environment you only need `python3` and `git` (`apt-get install -y python3 git`).
+At the time of writing, all 37 tests passed (v0.2.0). The language tests use pytest, so run them through `uv run`. To run the tool itself in a minimal Linux environment you only need `python3` and `git` (`apt-get install -y python3 git`).
 
 ## Limits of this document
 
 - The screenshots are taken directly from terminal output, and the numbers differ a little on each run, so they may differ slightly from the code blocks in the body (values from when it was written).
 - The mock numbers are a **temporary profile** from a single measurement of `qwen3:4b` (Q4_K_M). In milestone M2 it is planned to be replaced with measurements of the three quantization tags of `qwen3:0.6b`.
 - Measurement environment: Ollama 0.40.15, shared server. This is a demo for reading the **shape (staircase, flatness, input-length effect)** rather than the absolute numbers.
+- Even with `--lang ko`, the `ambiguous option: …` message (an ambiguous option abbreviation) and the `maybe you meant …` typo suggestion (Python 3.14+) stay in English. The other argparse errors (unrecognized option, missing argument, invalid value, invalid choice) are translated.
+- In the Korean screenshots the Hangul table headers may look slightly misaligned with the number columns because of the capture font (real terminal output is aligned).
+- Tests run with pytest (`unittest discover` is not supported).
 - Model existence is checked by comparing the server's `/api/tags` list with the tag string; per-port server lists are not managed separately. It has not yet been run on Linux.
 
 ## Learn more

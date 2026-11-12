@@ -3,9 +3,9 @@
 [English](README.md) | **한국어**
 
 ```text
-$ python3 -m llmbench run --mock
+$ python3 -m llmbench --lang ko run --mock
 
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx 동시    입력  TTFT p50      p95  디코드 합계tok/s 메모리MB
 qwen3:4b                  4096    1    long      4854     4931    33.4       9.5     3182
 qwen3:4b                  4096    1  medium      1691     1720    33.4      17.9     3182
 qwen3:4b                  4096    1   short       132      133    33.4      31.7     3182
@@ -13,7 +13,7 @@ qwen3:4b                  4096    1   short       132      133    33.4      31.7
 qwen3:4b                  4096    2   short      1127     2129    33.4      32.0     3182
 qwen3:4b                  4096    4   short      3118     6121    33.4      31.9     3182
 ```
-![연습용 mock 모드 실행 결과 표: 입력 길이와 동시 요청 수별 TTFT·디코드·합계 tok/s·메모리](docs/images/01-mock-run.png)
+![연습용 mock 모드 실행 결과 표: 입력 길이와 동시 요청 수별 TTFT·디코드·합계 tok/s·메모리](docs/images/01-mock-run.ko.png)
 <sub>결과 미리보기(연습용 mock 모드 실행 화면). 입력이 길어지면 TTFT 만 늘고 디코드 속도는 그대로이고, 동시 요청이 늘면 TTFT 의 p95 만 계단처럼 오릅니다. 위 텍스트 블록은 같은 출력의 일부를 복사한 것입니다.</sub>
 
 ## 한 줄 요약
@@ -59,7 +59,7 @@ MOCK — 녹화된 측정 프로필을 재생하는 연습용(mock) 모드입니
 ...
 ```
 
-(포트 번호는 실행마다 다릅니다.)
+(포트 번호는 실행마다 다릅니다. 화면 언어는 로케일을 따르고, 한국어가 아니면 영어로 나옵니다. 한국어·영어를 직접 고르려면 [화면 언어](#화면-언어)를 보세요. 이 파일의 예시는 한국어 화면이고, 영어 화면은 [README.md](README.md)에 있습니다.)
 
 **연습용 mock 모드란?** 진짜 모델을 돌리지 않습니다. 한 번 실측해 둔 숫자(`fixtures/profiles.json`)를 가지고 **진짜 Ollama 처럼 HTTP 로 응답을 스트리밍하는 가짜 서버**가 시간만 흉내 냅니다. 모델·키 없이 CI 에서도 같은 결과 모양이 나옵니다. 숫자는 실제 내 노트북의 속도가 **아닙니다**. 시간은 10배 빠르게 흘려보내고, 보고하는 값은 원래 척도로 되돌립니다(그래서 18초에 끝납니다).
 
@@ -70,7 +70,7 @@ ollama pull qwen3:4b
 python3 -m llmbench run --models qwen3:4b --concurrency 1 --prompt-sizes short,long --repeat 1 --num-predict 24
 ```
 
-이 명령을 작성 시점에 실제로 실행한 결과(Ollama 0.40.15, 공유 서버, Apple silicon):
+이 명령을 이전 릴리스에서 실제로 실행한 결과(Ollama 0.40.15, 공유 서버, Apple silicon):
 
 ```text
 [REAL] ollama 0.40.15 @ http://localhost:11434
@@ -80,7 +80,7 @@ python3 -m llmbench run --models qwen3:4b --concurrency 1 --prompt-sizes short,l
 [2/2] qwen3:4b ctx=4096 동시=1 입력=long 반복=1  TTFT 3864~3864ms  디코드 32.3 tok/s
 건너뜀 0칸, 새로 측정 2칸
 
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx 동시    입력  TTFT p50      p95  디코드 합계tok/s 메모리MB
 qwen3:4b                  4096    1    long      3864     3864    32.3       5.2     3182
 qwen3:4b                  4096    1   short       113      113    34.6      29.8     3182
 결과: results/run-47deefe1.jsonl
@@ -90,11 +90,11 @@ qwen3:4b                  4096    1   short       113      113    34.6      29.8
 
 ## 단계별로 따라 하기
 
-표 읽는 법: **TTFT** = 요청을 보내고 첫 글자가 올 때까지(ms), **p50/p95** = 중앙값 / 느린 쪽 5%의 경계, **디코드** = 서버가 보고한 초당 생성 토큰, **합계tok/s** = 그 배치의 전체 생성 토큰 ÷ 배치 전체 시간, **메모리MB** = 모델이 차지한 메모리 추정치(`/api/ps`의 `size`).
+표 읽는 법: **TTFT** = 요청을 보내고 첫 글자가 올 때까지(ms), **p50/p95** = 중앙값 / 느린 쪽 5%의 경계, **디코드**(decode) = 서버가 보고한 초당 생성 토큰, **합계tok/s** = 그 배치의 전체 생성 토큰 ÷ 배치 전체 시간, **메모리MB** = 모델이 차지한 메모리 추정치(`/api/ps`의 `size`).
 
 ### 1단계. 입력 길이만 바꿔 보기
 
-![입력 길이만 바꾼 mock 실행 화면](docs/images/02-input-length.png)
+![입력 길이만 바꾼 mock 실행 화면](docs/images/02-input-length.ko.png)
 <sub>그림 1. 입력 길이별 TTFT 비교(연습용 mock 모드). 숫자는 실행마다 조금 달라집니다.</sub>
 
 동시 요청을 1개로 고정하고 짧은/중간/긴 입력을 비교합니다.
@@ -104,7 +104,7 @@ python3 -m llmbench run --mock --concurrency 1 --repeat 1
 ```
 
 ```text
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx 동시    입력  TTFT p50      p95  디코드 합계tok/s 메모리MB
 qwen3:4b                  4096    1    long      4792     4792    33.4       9.6     3182
 qwen3:4b                  4096    1  medium      1696     1696    33.4      17.9     3182
 qwen3:4b                  4096    1   short       114      114    33.4      32.1     3182
@@ -114,7 +114,7 @@ qwen3:4b                  4096    1   short       114      114    33.4      32.1
 
 ### 2단계. 동시 요청 수만 바꿔 보기
 
-![동시 요청 수만 바꾼 mock 실행 화면](docs/images/03-concurrency.png)
+![동시 요청 수만 바꾼 mock 실행 화면](docs/images/03-concurrency.ko.png)
 <sub>그림 2. 동시 요청 1·2·4개의 TTFT p95 변화(연습용 mock 모드).</sub>
 
 ```bash
@@ -122,7 +122,7 @@ python3 -m llmbench run --mock --concurrency 1,2,4 --prompt-sizes short --repeat
 ```
 
 ```text
-model                      ctx   동시      입력  TTFT p50      p95     디코드   합계tok/s    메모리MB
+model                      ctx 동시    입력  TTFT p50      p95  디코드 합계tok/s 메모리MB
 qwen3:4b                  4096    1   short       129      129    33.4      31.8     3182
 qwen3:4b                  4096    2   short      1126     2015    33.4      31.9     3182
 qwen3:4b                  4096    4   short      3128     5820    33.4      32.0     3182
@@ -132,7 +132,7 @@ qwen3:4b                  4096    4   short      3128     5820    33.4      32.0
 
 ### 3단계. 중단했다가 이어서 재기
 
-![한 칸만 재고 멈춘 뒤 이어서 측정하는 화면](docs/images/04-resume.png)
+![한 칸만 재고 멈춘 뒤 이어서 측정하는 화면](docs/images/04-resume.ko.png)
 <sub>그림 3. `--max-cells 1` 로 멈춘 뒤 같은 명령으로 나머지를 이어서 측정.</sub>
 
 측정은 칸(배치)마다 JSONL 파일에 한 줄씩 저장됩니다. 같은 명령을 다시 실행하면 끝난 칸은 건너뜁니다. `--max-cells 1` 로 일부러 한 칸만 재고 멈춘 뒤 이어 봅니다.
@@ -146,6 +146,7 @@ python3 -m llmbench run --mock --concurrency 1,2 --prompt-sizes short --repeat 1
 [1/2] qwen3:4b ctx=4096 동시=1 입력=short 반복=1  TTFT 109~109ms  디코드 33.4 tok/s
 건너뜀 0칸, 새로 측정 1칸 (상한에서 멈춤)
   ...
+이어하기: /tmp/llmb-demo/results/run-3580e55a.jsonl
 [2/2] qwen3:4b ctx=4096 동시=2 입력=short 반복=1  TTFT 136~2124ms  디코드 33.4 tok/s
 건너뜀 1칸, 새로 측정 1칸
 ```
@@ -154,11 +155,11 @@ python3 -m llmbench run --mock --concurrency 1,2 --prompt-sizes short --repeat 1
 
 ### 4단계. 서버가 없을 때
 
-![Ollama 서버가 없을 때의 오류 안내 화면](docs/images/05-no-server.png)
+![Ollama 서버가 없을 때의 오류 안내 화면](docs/images/05-no-server.ko.png)
 <sub>그림 4. 서버 연결 실패 시 안내 메시지(종료 코드 2).</sub>
 
 ```bash
-python3 -m llmbench run --host 127.0.0.1:1
+python3 -m llmbench --lang ko run --host 127.0.0.1:1
 ```
 
 ```text
@@ -168,6 +169,24 @@ python3 -m llmbench run --host 127.0.0.1:1
 ```
 
 종료 코드는 2 입니다. (`Errno 61` 은 macOS 의 값이고 리눅스에서는 `Errno 111` 로 보입니다.)
+
+## 화면 언어
+
+화면에 나오는 모든 글(도움말·진행 줄·요약 표·오류)을 영어 또는 한국어로 볼 수 있습니다. 먼저 해당하는 규칙이 이깁니다.
+
+1. `--lang en|ko` (`run` 앞뒤 어디에 써도 됩니다. 앞뒤에 서로 다른 값을 주면 `run` 앞의 값이 쓰입니다)
+2. 환경변수 `LLMBENCH_LANG`
+3. 로케일 변수 `LC_ALL` → `LC_MESSAGES` → `LANG`
+
+값이 `ko` 로 시작하면(`ko`, `ko_KR.UTF-8`) 한국어, 그 밖이거나 아무것도 없으면 영어입니다.
+
+```bash
+python3 -m llmbench --lang en run --mock          # 이번 실행만 영어
+LLMBENCH_LANG=en python3 -m llmbench run --mock   # 이 셸에서는 계속 영어
+python3 -m llmbench --lang ko --help              # 도움말과 argparse 오류도 번역됩니다
+```
+
+사람이 읽는 글만 바뀝니다. JSONL 결과의 키와 값, 결과 파일 이름(`run-<해시>.jsonl`), 옵션 이름, 종료코드(성공 0, 입력·서버 오류 2, Ctrl+C 130)는 그대로라서, 한 언어로 시작한 측정을 다른 언어로 이어할 수 있습니다.
 
 ## 어떻게 동작하나요?
 
@@ -199,6 +218,7 @@ flowchart LR
 | [`llmbench/matrix.py`](llmbench/matrix.py) | 측정 칸 반복, JSONL 저장, 이어하기 |
 | [`llmbench/stats.py`](llmbench/stats.py) | 백분위수·합계 처리량 집계 |
 | [`llmbench/prompts.py`](llmbench/prompts.py) | short/medium/long 프롬프트 만들기 |
+| [`llmbench/i18n.py`](llmbench/i18n.py) | 화면 문구 표(en/ko)와 언어 결정 순서 |
 | [`tests/`](tests) | 계단 TTFT·입력 길이 효과·캐시·이어하기·서버 없음 시험 |
 
 **핵심 1 — TTFT 는 "내용이 있는 첫 청크"가 도착한 시각** ([`client.py`](llmbench/client.py))
@@ -257,22 +277,25 @@ with self.slot:  # 여기서 줄을 선다. 대기 시간은 total_duration 에 
 | `경고: 다른 모델이 이미 메모리에 있습니다` | 다른 모델이 메모리·속도에 영향 | 해당 모델을 내리고 다시 측정 |
 | 같은 명령인데 "건너뜀 N칸"만 나옴 | 설정이 같아 이전 결과를 이어받음 | 새로 재려면 `--fresh` 또는 `--run-id` |
 | `오류: --prompt-sizes 에 알 수 없는 값 ['huge']` 또는 `--concurrency 는 1 이상의 정수 목록이어야 합니다` (종료 코드 2) | 입력 검증: 허용 범위 밖의 값 | `--prompt-sizes` 는 `short,medium,long` 중에서, `--concurrency`·`--repeat` 는 1 이상의 정수로 지정 |
+| 화면이 원하는 언어가 아님 | 로케일이 언어를 정함 | `--lang en` 또는 `--lang ko` 를 주거나 `LLMBENCH_LANG` 설정([화면 언어](#화면-언어) 참고) |
 | 아주 느린 CI 에서 mock 시험이 실패 | 시험이 벽시계 기반 | `--mock-speed` 를 낮춰(예: 5) 재시도 |
 
 ## 개발·시험
 
 ```bash
-uv run pytest -q                                   # uv 필요: curl -LsSf https://astral.sh/uv/install.sh | sh
-python3 -m unittest discover -s tests -t .         # uv 없이도 가능
+uv run pytest -q          # uv 필요: curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-둘 다 작성 시점에 17개 시험이 모두 통과했습니다. 리눅스 최소 환경에서는 `python3` 와 `git` 만 있으면 됩니다(`apt-get install -y python3 git`).
+작성 시점(v0.2.0)에 37개 시험이 모두 통과했습니다. 언어 시험은 pytest 를 쓰므로 `uv run` 으로 돌리세요. 도구 자체를 리눅스 최소 환경에서 실행하려면 `python3` 와 `git` 만 있으면 됩니다(`apt-get install -y python3 git`).
 
 ## 이 문서의 한계
 
 - 스크린샷은 터미널 출력을 그대로 찍은 것이고, 숫자는 실행마다 조금씩 달라서 본문 코드 블록(작성 시 실행한 값)과 약간 다를 수 있습니다.
 - mock 숫자는 `qwen3:4b`(Q4_K_M) 한 번의 실측에서 온 **임시 프로필**입니다. 마일스톤 M2 에서 `qwen3:0.6b` 세 양자화 태그의 실측으로 교체할 예정입니다.
 - 측정 환경 정보: Ollama 0.40.15, 공유 서버. 절대 숫자보다 **모양(계단·평평함·입력 길이 효과)**을 읽는 데모입니다.
+- 한국어 화면에서도 `ambiguous option: …`(옵션 약칭이 모호할 때)와 Python 3.14 이상의 `maybe you meant …`(오타 제안) 문장은 영어로 남습니다. 나머지 argparse 오류(알 수 없는 옵션·필수 인자 누락·잘못된 값·선택지)는 번역됩니다.
+- 한국어 스크린샷은 촬영 글꼴 때문에 표 머리글의 한글이 숫자 열과 조금 어긋나 보일 수 있습니다(실제 터미널 출력은 정렬됩니다).
+- 테스트는 pytest 로 돌립니다(`unittest discover` 는 지원하지 않습니다).
 - 모델 존재 확인은 서버의 `/api/tags` 목록과 태그 문자열을 비교하며, 포트별 서버 목록은 따로 관리하지 않습니다. 리눅스 환경에서는 아직 실행해 보지 않았습니다.
 
 ## 더 알아보기
