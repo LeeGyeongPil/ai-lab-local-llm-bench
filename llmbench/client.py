@@ -9,6 +9,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 
 from .i18n import CodedError
 
@@ -22,11 +23,28 @@ class OllamaError(Exception):
 
 
 def normalize_host(host: str) -> str:
-    """'127.0.0.1:11434' 같은 값도 'http://127.0.0.1:11434' 로 맞춘다."""
+    """Normalize an Ollama host the way the Ollama CLI reads OLLAMA_HOST.
+
+    - no scheme and no port -> ``http://<host>:11434``
+    - explicit http(s):// without a port keeps the scheme's default port
+    - ``0.0.0.0`` is not connectable, so it becomes ``127.0.0.1``
+    """
     host = host.strip().rstrip("/")
-    if not host.startswith(("http://", "https://")):
-        host = "http://" + host
-    return host
+    explicit_scheme = host.startswith(("http://", "https://"))
+    parsed = urlsplit(host if explicit_scheme else "http://" + host)
+    hostname = parsed.hostname or ""
+    try:
+        port = parsed.port
+    except ValueError:
+        return host if explicit_scheme else "http://" + host
+    if hostname == "0.0.0.0":
+        hostname = "127.0.0.1"
+    if ":" in hostname:  # IPv6 literal needs brackets again
+        hostname = f"[{hostname}]"
+    if port is None and not explicit_scheme:
+        port = 11434
+    netloc = f"{hostname}:{port}" if port is not None else hostname
+    return f"{parsed.scheme}://{netloc}{parsed.path.rstrip('/')}"
 
 
 class OllamaClient:
