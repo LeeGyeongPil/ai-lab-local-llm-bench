@@ -286,7 +286,7 @@ with self.slot:  # 여기서 줄을 선다. 대기 시간은 total_duration 에 
 uv run pytest -q          # uv 필요: curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-작성 시점(v0.2.0)에 37개 시험이 모두 통과했습니다. 언어 시험은 pytest 를 쓰므로 `uv run` 으로 돌리세요. 도구 자체를 리눅스 최소 환경에서 실행하려면 `python3` 와 `git` 만 있으면 됩니다(`apt-get install -y python3 git`).
+작성 시점(v0.2.1)에 50개 시험이 모두 통과했습니다. 언어 시험은 pytest 를 쓰므로 `uv run` 으로 돌리세요. 도구 자체를 리눅스 최소 환경에서 실행하려면 `python3` 와 `git` 만 있으면 됩니다(`apt-get install -y python3 git`).
 
 ## 이 문서의 한계
 

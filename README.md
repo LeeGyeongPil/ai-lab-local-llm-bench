@@ -288,7 +288,7 @@ The server does not report queue time separately, so it is estimated as "total â
 uv run pytest -q          # needs uv: curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-At the time of writing, all 37 tests passed (v0.2.0). The language tests use pytest, so run them through `uv run`. To run the tool itself in a minimal Linux environment you only need `python3` and `git` (`apt-get install -y python3 git`).
+At the time of writing, all 50 tests passed (v0.2.1). The language tests use pytest, so run them through `uv run`. To run the tool itself in a minimal Linux environment you only need `python3` and `git` (`apt-get install -y python3 git`).
 
 ## Limits of this document
 
